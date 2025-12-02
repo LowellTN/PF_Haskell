@@ -1,14 +1,29 @@
-
+import qualified Data.Map as Map
+import System.FilePath (takeDirectory, takeFileName, (</>))
 
 
 main :: IO()
 main = do
-    content <- readFile "file.txt"
-    putStrLn ("File content: " ++ content)
-    let nodes = getBaseNodes content
-    putStrLn (show nodes)
-    let tree = treeConstruct nodes
-    putStrLn (show tree)
+    -- compression
+    let file_name = "test_files/file.txt"
+    content <- readFile file_name
+
+    let dir = takeDirectory file_name
+    let fileName = takeFileName file_name
+    let outputPath = dir </> ("compressed_" ++ fileName)
+
+    writeFile outputPath (compress content)
+
+
+    -- decompression
+    let file_name = "test_files/compressed_file.txt"
+    content <- readFile file_name
+
+    let dir = takeDirectory file_name
+    let fileName = takeFileName file_name
+    let outputPath = dir </> ("decompressed_" ++ fileName)
+
+    writeFile outputPath (decompress content)
 
 
 data Node = MkNode {
@@ -74,3 +89,119 @@ treeConstruct (h:[]) = h
 treeConstruct (h:t) =
     let (n1, n2, nodes) = getTwoLowest (h:t)
     in treeConstruct (mergeNodes n1 n2 : nodes)
+
+
+-- Tree serialization format:
+-- Leaf nodes: L<char>
+-- Internal nodes: I(<left>)(<right>)
+-- Example: I(La)(Lb)
+
+
+-- Escape special characters for tree serialization
+escapeChar :: Char -> String
+escapeChar '\n' = "\\n"
+escapeChar '\\' = "\\\\"
+escapeChar '(' = "\\("
+escapeChar ')' = "\\)"
+escapeChar c = [c]
+
+
+-- Unescape characters when parsing tree
+unescapeChar :: String -> (Char, String)
+unescapeChar ('\\':'n':rest) = ('\n', rest)
+unescapeChar ('\\':'\\':rest) = ('\\', rest)
+unescapeChar ('\\':'(':rest) = ('(', rest)
+unescapeChar ('\\':')':rest) = (')', rest)
+unescapeChar (c:rest) = (c, rest)
+unescapeChar [] = error "Expected character but reached end"
+
+
+treeToString :: Node -> String
+treeToString node
+    | isLeaf node = "L" ++ escapeChar (head (chars node))
+    | otherwise = "I(" ++ treeToString (fromJust (left node)) ++ ")(" ++ treeToString (fromJust (right node)) ++ ")"
+    where
+        isLeaf (MkNode Nothing Nothing _ _) = True
+        isLeaf _ = False
+        fromJust (Just x) = x
+        fromJust Nothing = error "Unexpected Nothing"
+
+
+-- Parse a tree from string representation
+parseTree :: String -> (Node, String)
+parseTree ('L':rest) = 
+    let (c, remaining) = unescapeChar rest
+    in (MkNode Nothing Nothing [c] 0, remaining)
+parseTree ('I':'(':rest) =
+    let (leftNode, rest1) = parseTree rest
+        rest2 = case rest1 of
+            (')':'(':r) -> r
+            [] -> error "Expected ')(' after left subtree but reached end of string"
+            (')':_) -> error "Expected '(' after ')' but found different character"
+            _ -> error "Expected ')(' after left subtree"
+        (rightNode, rest3) = parseTree rest2
+        rest4 = case rest3 of
+            (')':r) -> r
+            [] -> error "Expected ')' after right subtree but reached end of string"
+            _ -> error "Expected ')' after right subtree"
+        chars_combined = chars leftNode ++ chars rightNode
+    in (MkNode (Just leftNode) (Just rightNode) chars_combined 0, rest4)
+parseTree [] = error "Empty string in parseTree"
+parseTree s = error ("Unexpected format in parseTree: " ++ take 10 s)
+
+
+stringToTree :: String -> Node
+stringToTree str = 
+    let (tree, remaining) = parseTree str
+    in if null remaining 
+       then tree 
+       else error ("Unexpected remaining characters: " ++ remaining)
+
+
+getCharMap :: Node -> String -> Map.Map Char String
+getCharMap (MkNode Nothing Nothing [c] _) code = Map.singleton c code
+getCharMap (MkNode (Just l) (Just r) _ _) code = Map.union (getCharMap l (code ++ "0")) (getCharMap r (code ++ "1"))
+getCharMap _ _ = error "Bad tree"
+
+
+getBitStringRec :: String -> Map.Map Char String -> String
+getBitStringRec [] _ = []
+getBitStringRec (c:r) map = 
+    case Map.lookup c map of
+        Just bits -> bits ++ getBitStringRec r map
+        Nothing -> error ("Character not found in map: " ++ [c])
+
+
+getBitString :: String -> Node -> String
+getBitString [] _ = []
+getBitString content node = getBitStringRec content (getCharMap node "")
+
+
+getContentFromBitString :: String -> Node -> String
+getContentFromBitString bitString tree = decode bitString tree tree
+    where
+        decode [] (MkNode Nothing Nothing [c] _) _ = [c]
+        decode [] _ _ = []
+        decode remaining currentNode originalTree =
+            case currentNode of
+                MkNode Nothing Nothing [c] _ -> c : decode remaining originalTree originalTree
+                MkNode (Just l) (Just r) _ _ ->
+                    case remaining of
+                        ('0':rest) -> decode rest l originalTree
+                        ('1':rest) -> decode rest r originalTree
+                        _ -> error "Invalid bit in string or bit string ended before reaching a leaf"
+                _ -> error "Invalid tree structure"
+
+
+compress :: String -> String
+compress content = 
+    let tree = treeConstruct (getBaseNodes content) in
+    treeToString tree ++ "\n" ++ getBitString content tree
+
+
+decompress :: String -> String
+decompress content = do
+    let contentLines = lines content
+    case contentLines of
+        (treeStr:bitStr:_) -> getContentFromBitString bitStr (stringToTree treeStr)
+        _ -> error "Invalid file format: expected at least 2 lines"

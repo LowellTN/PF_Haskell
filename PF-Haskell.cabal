@@ -102,14 +102,20 @@ common warnings
 executable Main.hs
     import:           common-all
     main-is:          Main.hs
-    hs-source-dirs:   app
+    other-modules:    RLE, Huffman
+    hs-source-dirs:   app, src
 
-executable Huffman.hs
-    import:           common-all
-    main-is:          Huffman.hs
-    hs-source-dirs:   src
+-- executable Huffman.hs
+--     import:           common-all
+--     main-is:          Huffman.hs
+--     hs-source-dirs:   src
 
 executable BWT.hs
     import:           common-all
     main-is:          BWT.hs
     hs-source-dirs:   src
+
+-- executable RLE.hs
+--     import:           common-all
+--     main-is:          RLE.hs
+--     hs-source-dirs:   src

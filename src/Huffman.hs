@@ -1,29 +1,31 @@
+module Huffman (compress, decompress) where
+
 import qualified Data.Map as Map
 import System.FilePath (takeDirectory, takeFileName, (</>))
 
 
-main :: IO()
-main = do
-    -- compression
-    let file_name = "test_files/file.txt"
-    content <- readFile file_name
+-- main :: IO()
+-- main = do
+--     -- compression
+--     let file_name = "test_files/file.txt"
+--     content <- readFile file_name
 
-    let dir = takeDirectory file_name
-    let fileName = takeFileName file_name
-    let outputPath = dir </> ("compressed_" ++ fileName)
+--     let dir = takeDirectory file_name
+--     let fileName = takeFileName file_name
+--     let outputPath = dir </> ("compressed_" ++ fileName)
+--     let (treeStr, bitStr) = compress content
+--     writeFile outputPath (treeStr ++ "\n" ++ bitStr)
 
-    writeFile outputPath (compress content)
 
+--     -- decompression
+--     let file_name = "test_files/compressed_file.txt"
+--     content <- readFile file_name
 
-    -- decompression
-    let file_name = "test_files/compressed_file.txt"
-    content <- readFile file_name
+--     let dir = takeDirectory file_name
+--     let fileName = takeFileName file_name
+--     let outputPath = dir </> ("decompressed_" ++ fileName)
 
-    let dir = takeDirectory file_name
-    let fileName = takeFileName file_name
-    let outputPath = dir </> ("decompressed_" ++ fileName)
-
-    writeFile outputPath (decompress content)
+--     writeFile outputPath (decompress content)
 
 
 data Node = MkNode {
@@ -193,15 +195,11 @@ getContentFromBitString bitString tree = decode bitString tree tree
                 _ -> error "Invalid tree structure"
 
 
-compress :: String -> String
+compress :: String -> (String, String)
 compress content = 
     let tree = treeConstruct (getBaseNodes content) in
-    treeToString tree ++ "\n" ++ getBitString content tree
+    (treeToString tree, getBitString content tree)
 
 
-decompress :: String -> String
-decompress content = do
-    let contentLines = lines content
-    case contentLines of
-        (treeStr:bitStr:_) -> getContentFromBitString bitStr (stringToTree treeStr)
-        _ -> error "Invalid file format: expected at least 2 lines"
+decompress :: String -> String -> String
+decompress treeStr bitStr = getContentFromBitString bitStr (stringToTree treeStr)

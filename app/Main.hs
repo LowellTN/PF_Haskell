@@ -8,7 +8,7 @@ main :: IO()
 main = do
     -- test: Huffman puis RLE
     -- compression
-    let file_name = "test_files/file2.txt"
+    let file_name = "test_files/file50KB.txt"
     content <- readFile file_name
 
     let dir = takeDirectory file_name

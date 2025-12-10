@@ -2,13 +2,48 @@
 
 import Data.List (sort)
 import Data.Char (isDigit)
+import System.FilePath (takeDirectory, takeFileName, (</>))
 
 main :: IO()
 main = do
-    let s = "ABEACADABEA"
-        code = encodebwt s
-        decode = decodebwt code
-    print (s, code, decode, s == decode)
+    -- compression
+    let file_name = "test_files/file.txt"
+    content <- readFile file_name
+
+    let dir = takeDirectory file_name
+    let fileName = takeFileName file_name
+    let outputPath = dir </> ("compressed_" ++ fileName)
+
+    writeFile outputPath (encodebwt content)
+
+
+    -- decompression
+    let file_name = "test_files/compressed_file.txt"
+    content <- readFile file_name
+
+    let dir = takeDirectory file_name
+    let fileName = takeFileName file_name
+    let outputPath = dir </> ("decompressed_" ++ fileName)
+
+    writeFile outputPath (decodebwt content)
+
+-- Escape special characters for tree serialization
+escapeChar :: Char -> String
+escapeChar '\n' = "\\n"
+escapeChar '\\' = "\\\\"
+escapeChar '(' = "\\("
+escapeChar ')' = "\\)"
+escapeChar c = [c]
+
+
+-- Unescape characters when parsing tree
+unescapeChar :: String -> (Char, String)
+unescapeChar ('\\':'n':rest) = ('\n', rest)
+unescapeChar ('\\':'\\':rest) = ('\\', rest)
+unescapeChar ('\\':'(':rest) = ('(', rest)
+unescapeChar ('\\':')':rest) = (')', rest)
+unescapeChar (c:rest) = (c, rest)
+unescapeChar [] = error "Expected character but reached end"
 
 data Rotation = Rotation {
     index :: Int,
@@ -56,19 +91,22 @@ encode rotations = [last (chain r) | r <- rotations]
 -- Succession des fonctions précédentes pour appliquer la transformée
 encodebwt :: String -> String
 encodebwt string = 
-    let rot = generateRotations string
+    let escapedString = concatMap escapeChar string  -- Échappe tous les caractères spéciaux pour endoder sur deux lignes
+        rot = generateRotations escapedString
         matRot = sortRotations rot
-        index = findIndex string matRot
+        idx = findIndex escapedString matRot
         code = encode matRot 
-    in show index ++ code
+    in show idx ++ "\n" ++ code
 
 -- Partie decodebwt()
 
 -- Séparation de l'indice et de la chaine encodée
 popIndex :: String -> (Int, String)
 popIndex s = 
-    let (index, chain) = span isDigit s
-    in (read index :: Int, chain)
+    let split = lines s
+        indexLine = head split
+        chainLine = split !! 1
+    in (read indexLine :: Int, chainLine)
 
 -- Création d'un table au séparant chaque lettre de la chaîne
 initDecode :: String -> [String]
@@ -84,8 +122,15 @@ iterateDecode encoded split =
 -- Decodage de la transformée
 decodebwt :: String -> String
 decodebwt code =
-    let
-        (i, c) = popIndex code
+    let (i, c) = popIndex code
         init = initDecode c
         matrix = iterateDecode c init
-    in matrix !! (i-1)
+        escapedResult = matrix !! (i - 1)
+    in unescapeString escapedResult
+
+-- Fonction pour déséchapper toute une chaîne
+unescapeString :: String -> String
+unescapeString [] = []
+unescapeString s = 
+    let (c, rest) = unescapeChar s
+    in c : unescapeString rest

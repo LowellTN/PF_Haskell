@@ -1,38 +1,40 @@
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+module BWT (encode, decode) where
 
 import Data.List (sort)
 import Data.Char (isDigit)
 import System.FilePath (takeDirectory, takeFileName, (</>))
 
-main :: IO()
-main = do
-    -- compression
-    let file_name = "test_files/file.txt"
-    content <- readFile file_name
+-- main :: IO()
+-- main = do
+--     -- compression
+--     let file_name = "test_files/file10B.txt"
+--     content <- readFile file_name
 
-    let dir = takeDirectory file_name
-    let fileName = takeFileName file_name
-    let outputPath = dir </> ("compressed_" ++ fileName)
+--     let dir = takeDirectory file_name
+--     let fileName = takeFileName file_name
+--     let outputPath = dir </> ("compressed_" ++ fileName)
 
-    writeFile outputPath (encodebwt content)
+--     let (i, c) = encode content
+--     writeFile outputPath (show i ++ "\n" ++ c)
 
 
-    -- decompression
-    let file_name = "test_files/compressed_file.txt"
-    content <- readFile file_name
+--     -- decompression
+--     let file_name = "test_files/compressed_file10B.txt"
+--     content <- readFile file_name
 
-    let dir = takeDirectory file_name
-    let fileName = takeFileName file_name
-    let outputPath = dir </> ("decompressed_" ++ fileName)
+--     let dir = takeDirectory file_name
+--     let fileName = takeFileName file_name
+--     let outputPath = dir </> ("decompressed_" ++ fileName)
 
-    writeFile outputPath (decodebwt content)
+--     let contentLines = lines content
+--     case contentLines of
+--         idxStr:str:[] -> writeFile outputPath (decode (read idxStr :: Int) str)
+--         _ -> error "misencoded BWT"
 
 -- Escape special characters for tree serialization
 escapeChar :: Char -> String
 escapeChar '\n' = "\\n"
 escapeChar '\\' = "\\\\"
-escapeChar '(' = "\\("
-escapeChar ')' = "\\)"
 escapeChar c = [c]
 
 
@@ -40,10 +42,15 @@ escapeChar c = [c]
 unescapeChar :: String -> (Char, String)
 unescapeChar ('\\':'n':rest) = ('\n', rest)
 unescapeChar ('\\':'\\':rest) = ('\\', rest)
-unescapeChar ('\\':'(':rest) = ('(', rest)
-unescapeChar ('\\':')':rest) = (')', rest)
 unescapeChar (c:rest) = (c, rest)
 unescapeChar [] = error "Expected character but reached end"
+
+-- Fonction pour déséchapper toute une chaîne
+unescapeString :: String -> String
+unescapeString [] = []
+unescapeString s = 
+    let (c, rest) = unescapeChar s
+    in c : unescapeString rest
 
 data Rotation = Rotation {
     index :: Int,
@@ -74,7 +81,7 @@ sortRotations :: [String] -> [Rotation]
 sortRotations matrix =
     let sorted = sort matrix
         indexed = zip [1..] sorted
-    in map (uncurry Rotation ) indexed
+    in map (uncurry Rotation) indexed
 
 
 -- Permet de récupérer l'index de la première rotation cont la chaîne correspond au string d'entrée
@@ -85,28 +92,19 @@ findIndex s rotations =
         [] -> error "String non trouvé"
 
 -- Récupération de la dernière lettre de chaque rotation pour encoder
-encode :: [Rotation] -> String
-encode rotations = [last (chain r) | r <- rotations]
+findLastCharacters :: [Rotation] -> String
+findLastCharacters rotations = [last (chain r) | r <- rotations]
 
 -- Succession des fonctions précédentes pour appliquer la transformée
-encodebwt :: String -> String
-encodebwt string = 
-    let escapedString = concatMap escapeChar string  -- Échappe tous les caractères spéciaux pour endoder sur deux lignes
-        rot = generateRotations escapedString
+encode :: String -> (Int, String)
+encode string = 
+    let rot = generateRotations string
         matRot = sortRotations rot
-        idx = findIndex escapedString matRot
-        code = encode matRot 
-    in show idx ++ "\n" ++ code
+        idx = findIndex string matRot
+        code = findLastCharacters matRot 
+    in (idx, concatMap escapeChar code)
 
 -- Partie decodebwt()
-
--- Séparation de l'indice et de la chaine encodée
-popIndex :: String -> (Int, String)
-popIndex s = 
-    let split = lines s
-        indexLine = head split
-        chainLine = split !! 1
-    in (read indexLine :: Int, chainLine)
 
 -- Création d'un table au séparant chaque lettre de la chaîne
 initDecode :: String -> [String]
@@ -120,17 +118,10 @@ iterateDecode encoded split =
     in iterations !! (length encoded - 1)
 
 -- Decodage de la transformée
-decodebwt :: String -> String
-decodebwt code =
-    let (i, c) = popIndex code
-        init = initDecode c
-        matrix = iterateDecode c init
-        escapedResult = matrix !! (i - 1)
-    in unescapeString escapedResult
-
--- Fonction pour déséchapper toute une chaîne
-unescapeString :: String -> String
-unescapeString [] = []
-unescapeString s = 
-    let (c, rest) = unescapeChar s
-    in c : unescapeString rest
+decode :: Int -> String -> String
+decode i c =
+    let un_c = unescapeString c
+        init = initDecode un_c
+        matrix = iterateDecode un_c init
+        result = matrix !! (i - 1)
+    in  result

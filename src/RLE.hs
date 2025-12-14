@@ -1,30 +1,6 @@
-module RLE (compress, decompress) where
+module RLE (encode, decode) where
 
 import System.FilePath (takeDirectory, takeFileName, (</>))
-
-
--- main :: IO()
--- main = do
---     -- compression
---     let file_name = "test_files/file2.txt"
---     content <- readFile file_name
-
---     let dir = takeDirectory file_name
---     let fileName = takeFileName file_name
---     let outputPath = dir </> ("compressed_" ++ fileName)
-
---     writeFile outputPath (compress content)
-
-
---     -- decompression
---     let file_name = "test_files/compressed_file2.txt"
---     content <- readFile file_name
-
---     let dir = takeDirectory file_name
---     let fileName = takeFileName file_name
---     let outputPath = dir </> ("decompressed_" ++ fileName)
-
---     writeFile outputPath (decompress content)
 
 
 -- Escape special characters for tree serialization
@@ -46,30 +22,28 @@ unescapeChar (c:rest) = (c, rest)
 unescapeChar [] = error "Expected character but reached end"
 
 
-compressHelper :: String -> Char -> Int -> String
-compressHelper [] c n
-    | n > 2 = "(" ++ show n ++ ")" ++ escapeChar c
-    | n == 2 = escapeChar c ++ escapeChar c
-    | otherwise = escapeChar c
-compressHelper (x:xs) c n
-    | x == c = compressHelper xs c (n+1)
-    | n > 2 = "(" ++ show n ++ ")" ++ escapeChar c ++ compressHelper xs x 1
-    | n == 2 = escapeChar c ++ escapeChar c ++ compressHelper xs x 1
-    | otherwise = escapeChar c ++ compressHelper xs x 1
+encodeHelper :: String -> Char -> Int -> String
+encodeHelper [] c n
+    | n > 4 = "(" ++ show n ++ ")" ++ escapeChar c
+    | otherwise = concat (replicate n (escapeChar c))
+encodeHelper (x:xs) c n
+    | x == c = encodeHelper xs c (n+1)
+    | n > 4 = "(" ++ show n ++ ")" ++ escapeChar c ++ encodeHelper xs x 1
+    | otherwise = concat (replicate n (escapeChar c)) ++ encodeHelper xs x 1
 
 
-compress :: String -> String
-compress [] = []
-compress (x:xs) = compressHelper xs x 1
+encode :: String -> String
+encode [] = []
+encode (x:xs) = encodeHelper xs x 1
 
 
-decompress :: String -> String
-decompress [] = []
-decompress ('(':xs) =
+decode :: String -> String
+decode [] = []
+decode ('(':xs) =
     let (numStr, rest) = span (/= ')') xs
         count = read numStr :: Int
         (char, remaining) = unescapeChar (tail rest)  -- skip ')'
-    in replicate count char ++ decompress remaining
-decompress s =
+    in replicate count char ++ decode remaining
+decode s =
     let (char, rest) = unescapeChar s
-    in char : decompress rest
+    in char : decode rest

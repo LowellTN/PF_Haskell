@@ -1,31 +1,7 @@
-module Huffman (compress, decompress) where
+module Huffman (encode, decode) where
 
 import qualified Data.Map as Map
 import System.FilePath (takeDirectory, takeFileName, (</>))
-
-
--- main :: IO()
--- main = do
---     -- compression
---     let file_name = "test_files/file.txt"
---     content <- readFile file_name
-
---     let dir = takeDirectory file_name
---     let fileName = takeFileName file_name
---     let outputPath = dir </> ("compressed_" ++ fileName)
---     let (treeStr, bitStr) = compress content
---     writeFile outputPath (treeStr ++ "\n" ++ bitStr)
-
-
---     -- decompression
---     let file_name = "test_files/compressed_file.txt"
---     content <- readFile file_name
-
---     let dir = takeDirectory file_name
---     let fileName = takeFileName file_name
---     let outputPath = dir </> ("decompressed_" ++ fileName)
-
---     writeFile outputPath (decompress content)
 
 
 data Node = MkNode {
@@ -195,11 +171,11 @@ getContentFromBitString bitString tree = decode bitString tree tree
                 _ -> error "Invalid tree structure"
 
 
-compress :: String -> (String, String)
-compress content = 
+encode :: String -> (String, String)
+encode content = 
     let tree = treeConstruct (getBaseNodes content) in
     (treeToString tree, getBitString content tree)
 
 
-decompress :: String -> String -> String
-decompress treeStr bitStr = getContentFromBitString bitStr (stringToTree treeStr)
+decode :: String -> String -> String
+decode treeStr bitStr = getContentFromBitString bitStr (stringToTree treeStr)

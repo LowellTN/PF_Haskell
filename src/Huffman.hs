@@ -19,6 +19,7 @@ instance Show Node where
             showMaybeNode (Just n) = show n
 
 
+-- Crée un nouveau nœud avec un caractère et une fréquence de 1
 newNode :: Char -> Node
 newNode c = MkNode {
     left = Nothing,
@@ -28,6 +29,7 @@ newNode c = MkNode {
 }
 
 
+-- Ajoute un caractère à la liste de nœuds ou incrémente sa fréquence s'il existe déjà
 addChar :: Char -> [Node] -> [Node]
 addChar c [] = [newNode c]
 addChar c (h:t) | h.chars == [c] = (h {freq = h.freq + 1}):t
@@ -39,14 +41,17 @@ getBaseNodesRec "" nodes = nodes
 getBaseNodesRec (c:r) nodes = getBaseNodesRec r (addChar c nodes)
 
 
+-- Construit la liste des nœuds de base avec les fréquences de chaque caractère
 getBaseNodes :: String -> [Node]
 getBaseNodes s = getBaseNodesRec s []
 
 
+-- Fusionne deux nœuds en un nouveau nœud parent
 mergeNodes :: Node -> Node -> Node
 mergeNodes n1 n2 = MkNode (Just n1) (Just n2) (n1.chars ++ n2.chars) (n1.freq + n2.freq)
 
 
+-- Trouve les deux nœuds avec les fréquences les plus basses et retourne le reste
 getTwoLowest :: [Node] -> (Node, Node, [Node])
 getTwoLowest [] = error "Need at least 2 nodes (got 0)"
 getTwoLowest [_] = error "Need at least 2 nodes (got 1)"
@@ -61,6 +66,7 @@ getTwoLowest (n1:n2:rest)
             | otherwise = findTwo min1 min2 (x:acc) xs
 
 
+-- Construit l'arbre de Huffman à partir d'une liste de nœuds
 treeConstruct :: [Node] -> Node
 treeConstruct [] = error "The node list is empty"
 treeConstruct (h:[]) = h
@@ -69,13 +75,7 @@ treeConstruct (h:t) =
     in treeConstruct (mergeNodes n1 n2 : nodes)
 
 
--- Tree serialization format:
--- Leaf nodes: L<char>
--- Internal nodes: I(<left>)(<right>)
--- Example: I(La)(Lb)
-
-
--- Escape special characters for tree serialization
+-- Échappe les caractères spéciaux pour la sérialisation
 escapeChar :: Char -> String
 escapeChar '\n' = "\\n"
 escapeChar '\\' = "\\\\"
@@ -84,7 +84,7 @@ escapeChar ')' = "\\)"
 escapeChar c = [c]
 
 
--- Unescape characters when parsing tree
+-- Déséchappe les caractères lors du parsing
 unescapeChar :: String -> (Char, String)
 unescapeChar ('\\':'n':rest) = ('\n', rest)
 unescapeChar ('\\':'\\':rest) = ('\\', rest)
@@ -94,6 +94,7 @@ unescapeChar (c:rest) = (c, rest)
 unescapeChar [] = error "Expected character but reached end"
 
 
+-- Convertit un arbre de Huffman en chaîne de caractères
 treeToString :: Node -> String
 treeToString node
     | isLeaf node = "L" ++ escapeChar (head (chars node))
@@ -105,7 +106,7 @@ treeToString node
         fromJust Nothing = error "Unexpected Nothing"
 
 
--- Parse a tree from string representation
+-- Parse une chaîne et reconstruit l'arbre de Huffman
 parseTree :: String -> (Node, String)
 parseTree ('L':rest) = 
     let (c, remaining) = unescapeChar rest
@@ -128,6 +129,7 @@ parseTree [] = error "Empty string in parseTree"
 parseTree s = error ("Unexpected format in parseTree: " ++ take 10 s)
 
 
+-- Convertit une chaîne en arbre de Huffman
 stringToTree :: String -> Node
 stringToTree str = 
     let (tree, remaining) = parseTree str
@@ -136,6 +138,7 @@ stringToTree str =
        else error ("Unexpected remaining characters: " ++ remaining)
 
 
+-- Crée une table de correspondance entre caractères et codes binaires
 getCharMap :: Node -> String -> Map.Map Char String
 getCharMap (MkNode Nothing Nothing [c] _) code = Map.singleton c code
 getCharMap (MkNode (Just l) (Just r) _ _) code = Map.union (getCharMap l (code ++ "0")) (getCharMap r (code ++ "1"))
@@ -150,11 +153,13 @@ getBitStringRec (c:r) map =
         Nothing -> error ("Character not found in map: " ++ [c])
 
 
+-- Convertit une chaîne de caractères en chaîne de bits selon l'arbre de Huffman
 getBitString :: String -> Node -> String
 getBitString [] _ = []
 getBitString content node = getBitStringRec content (getCharMap node "")
 
 
+-- Décode une chaîne de bits en texte original à partir de l'arbre de Huffman
 getContentFromBitString :: String -> Node -> String
 getContentFromBitString bitString tree = decode bitString tree tree
     where
@@ -171,11 +176,13 @@ getContentFromBitString bitString tree = decode bitString tree tree
                 _ -> error "Invalid tree structure"
 
 
+-- Encode une chaîne de caractères : retourne l'arbre sérialisé et la chaîne de bits
 encode :: String -> (String, String)
 encode content = 
     let tree = treeConstruct (getBaseNodes content) in
     (treeToString tree, getBitString content tree)
 
 
+-- Décode une chaîne de bits à partir de l'arbre sérialisé
 decode :: String -> String -> String
 decode treeStr bitStr = getContentFromBitString bitStr (stringToTree treeStr)

@@ -20,7 +20,7 @@ main = do
 parseAlgorithms :: String -> [String]
 parseAlgorithms = splitOn "-"
 
--- Count how many metadata lines each algorithm needs
+-- Compte combien de lignes de métadonnées chaque algorithme nécessite
 countMetadataLines :: String -> Int
 countMetadataLines "huffman" = 1
 countMetadataLines "bwt" = 1
@@ -53,7 +53,7 @@ decompressFromFile filePath = do
             let fileName = takeFileName filePath
             let outputPath = dir </> ("decompressed_" ++ fileName)
             
-            -- Extract metadata and content
+            -- Extrait les métadonnées et le contenu
             let totalMetadataLines = sum (map countMetadataLines algos)
             let metadata = take totalMetadataLines rest
             let contentLine = rest !! totalMetadataLines
@@ -64,7 +64,7 @@ decompressFromFile filePath = do
         _ -> error "Invalid compressed file format: missing algorithm chain"
 
 
--- Returns (metadata, content) where metadata is stored but not passed to next algorithm
+-- Retourne (métadonnées, contenu) où les métadonnées sont stockées mais non passées à l'algorithme suivant
 applyAlgorithms :: [String] -> String -> IO (String, String)
 applyAlgorithms [] content = return ("", content)
 applyAlgorithms ("huffman":rest) content = do
@@ -81,11 +81,11 @@ applyAlgorithms ("bwt":rest) content = do
 applyAlgorithms (algo:_) _ = error $ "Unknown algorithm: " ++ algo
 
 
--- Takes metadata lines and the final content line
--- Metadata is consumed from the back (reverse order of algorithms)
+-- Prend les lignes de métadonnées et la ligne de contenu finale
+-- Les métadonnées sont consommées depuis la fin (ordre inverse des algorithmes)
 applyDecompression :: [String] -> [String] -> String -> IO String
 applyDecompression [] [] content = return content
-applyDecompression [] (_:_) content = return content  -- Extra metadata, just ignore and return content
+applyDecompression [] (_:_) content = return content  -- Métadonnées supplémentaires, simplement ignorer et retourner le contenu
 applyDecompression ("huffman":rest) metadata content = do
     case reverse metadata of
         (treeStr:restMeta) -> do

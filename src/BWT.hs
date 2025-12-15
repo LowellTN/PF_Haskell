@@ -31,14 +31,14 @@ import System.FilePath (takeDirectory, takeFileName, (</>))
 --         idxStr:str:[] -> writeFile outputPath (decode (read idxStr :: Int) str)
 --         _ -> error "misencoded BWT"
 
--- Escape special characters for tree serialization
+-- Échappe le caractère courant
 escapeChar :: Char -> String
 escapeChar '\n' = "\\n"
 escapeChar '\\' = "\\\\"
 escapeChar c = [c]
 
 
--- Unescape characters when parsing tree
+-- Déséchappe le charactère courant
 unescapeChar :: String -> (Char, String)
 unescapeChar ('\\':'n':rest) = ('\n', rest)
 unescapeChar ('\\':'\\':rest) = ('\\', rest)

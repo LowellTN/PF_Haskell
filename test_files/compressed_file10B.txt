@@ -1,0 +1,5 @@
+huffman-bwt-rle-huffman
+I(I(I(LH)(Lo))(I(L )(LT)))(I(Ll)(I(Le)(I(Lt)(Ls))))
+3
+I(L0)(L1)
+110001111000110000111011110110
